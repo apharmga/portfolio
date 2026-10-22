@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="물류 실무자가 직접 만든 업무 자동화 도구의 동작 방식을 더미 데이터로 재현한 데모 페이지">
+<meta property="og:title" content="A-ONE 자동화 데모 — 장은총">
+<meta property="og:description" content="채널 주문 통합 처리와 소비기한 재고 판정을 직접 눌러볼 수 있는 데모">
+<meta name="robots" content="noindex">
+<style>
+  :root{color-scheme:light}
+  html,body{margin:0}
+  body{font:14px/1.6 system-ui,-apple-system,sans-serif}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+</style>
+<title>A-ONE 자동화 데모</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* 레이아웃: 단일 컬럼 · 실무 양식(출고지시서·처리로그)의 서류 밀도를 유지한 문서형 */
+:root{
+  --bg:#eaeef3; --surface:#fff; --sunk:#f4f6f9;
+  --ink:#16202c; --muted:#68738233; --mut:#687382; --line:#dce2ea;
+  --accent:#1a5fb4; --ok:#0f7b6c; --warn:#9a6410; --bad:#b03a2e;
+  --term:#161d26; --term-ink:#cfd8e3;
+  --f-body:"IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono","IBM Plex Sans KR",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10161e; --surface:#19202a; --sunk:#141b24;
+  --ink:#e6ebf2; --mut:#8d99a8; --line:#28313d;
+  --accent:#74a9ec; --ok:#4fb6a4; --warn:#d9a95a; --bad:#e58172;
+  --term:#0c1118; --term-ink:#c6d1de; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#10161e; --surface:#19202a; --sunk:#141b24;
+  --ink:#e6ebf2; --mut:#8d99a8; --line:#28313d;
+  --accent:#74a9ec; --ok:#4fb6a4; --warn:#d9a95a; --bad:#e58172;
+  --term:#0c1118; --term-ink:#c6d1de; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);line-height:1.6;margin:0}
+.wrap{max-width:62rem;margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:2.6rem 3.5rem}
+h1,h2,h3{text-wrap:balance;margin:0;letter-spacing:-.02em}
+.eyb{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.18em;color:var(--mut);text-transform:uppercase}
+
+/* 헤더 */
+header{border-bottom:2px solid var(--ink);padding-bottom:1.4rem;margin-bottom:1rem}
+header h1{font-size:1.9rem;font-weight:700;margin-top:.35rem}
+header .sub{color:var(--mut);font-size:.95rem;margin-top:.5rem}
+.disc{margin-top:1.4rem;background:var(--surface);border-left:3px solid var(--accent);
+  border-radius:0 6px 6px 0;padding:.85rem 1.1rem;font-size:.85rem;color:var(--mut);line-height:1.7}
+.disc b{color:var(--ink);font-weight:600}
+
+/* 섹션 */
+section{margin-top:2.8rem}
+.shead{display:flex;align-items:baseline;gap:.9rem;flex-wrap:wrap;margin-bottom:.4rem}
+.shead h2{font-size:1.25rem;font-weight:700}
+.shead .tool{font-family:var(--f-mono);font-size:.74rem;font-weight:600;color:var(--accent);
+  border:1px solid var(--accent);border-radius:4px;padding:.1rem .45rem}
+.lede{color:var(--mut);font-size:.92rem;max-width:60ch;margin-bottom:1.2rem}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ph{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
+  padding:.7rem 1rem;border-bottom:1px solid var(--line);background:var(--sunk)}
+.ph .t{font-size:.78rem;font-weight:600;letter-spacing:.04em;color:var(--mut)}
+.pb{padding:1rem}
+
+/* 탭 */
+.tabs{display:flex;gap:.35rem;flex-wrap:wrap;margin-left:auto}
+.tab{font-family:var(--f-mono);font-size:.74rem;padding:.25rem .6rem;border-radius:5px;cursor:pointer;
+  border:1px solid var(--line);background:var(--surface);color:var(--mut)}
+.tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 표 */
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.82rem;min-width:30rem}
+th{text-align:left;font-family:var(--f-mono);font-size:.68rem;letter-spacing:.06em;color:var(--mut);
+  font-weight:600;padding:.4rem .55rem;border-bottom:1px solid var(--ink);white-space:nowrap}
+td{padding:.46rem .55rem;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:none}
+.num{text-align:right}
+.mono{font-family:var(--f-mono);font-size:.78rem}
+
+/* 배지 */
+.bd{display:inline-block;font-family:var(--f-mono);font-size:.68rem;font-weight:600;
+  padding:.08rem .42rem;border-radius:4px;white-space:nowrap}
+.b-ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 13%,transparent)}
+.b-wn{color:var(--warn);background:color-mix(in srgb,var(--warn) 15%,transparent)}
+.b-bd{color:var(--bad);background:color-mix(in srgb,var(--bad) 13%,transparent)}
+.b-ac{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+
+/* 버튼 */
+.btn{font-family:var(--f-body);font-size:.88rem;font-weight:600;cursor:pointer;
+  background:var(--accent);color:#fff;border:none;border-radius:7px;padding:.6rem 1.3rem}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.btn.ghost{background:transparent;color:var(--mut);border:1px solid var(--line)}
+
+/* 로그 */
+.term{background:var(--term);color:var(--term-ink);font-family:var(--f-mono);font-size:.76rem;
+  line-height:1.85;padding:.9rem 1rem;border-radius:8px;min-height:9.5rem;white-space:pre-wrap;word-break:break-word}
+.term .g{color:#5fcab4}.term .y{color:#e2b45f}.term .d{color:#6b7a8c}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.grid2>*{min-width:0}
+@media(max-width:46rem){.grid2{grid-template-columns:1fr}}
+
+.stats{display:flex;gap:1.6rem;flex-wrap:wrap;padding:.9rem 1rem;background:var(--sunk);border-top:1px solid var(--line)}
+.stats div .v{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stats div .l{font-size:.72rem;color:var(--mut)}
+
+/* 슬라이더 */
+.ctl{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.ctl label{font-size:.82rem;color:var(--mut);white-space:nowrap}
+input[type=range]{flex:1;min-width:11rem;accent-color:var(--accent)}
+.mult{font-family:var(--f-mono);font-weight:600;font-size:1rem;color:var(--accent);min-width:3rem;
+  font-variant-numeric:tabular-nums}
+
+footer{margin-top:3.2rem;padding-top:1.3rem;border-top:1px solid var(--line);
+  font-size:.8rem;color:var(--mut);line-height:1.8}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+
+<header>
+  <div class="eyb">Interactive demo</div>
+  <h1>A-ONE 자동화 데모</h1>
+  <div class="sub">장은총 · 물류 · 구매 · 재고 운영 — 직접 만들어 사내에서 운영 중인 도구의 동작 방식</div>
+  <div class="disc">
+    <b>이 페이지는 더미 데이터로 재현한 데모입니다.</b> 실제 운영 중인 프로그램은 사내 전용이며,
+    여기에는 재직 중인 회사의 거래처·제품·주문 정보가 들어 있지 않습니다.
+    아래 두 가지는 실제 도구가 하는 일을 같은 방식으로 다시 구현한 것입니다.
+  </div>
+</header>
+
+<!-- ════ 데모 1 ════ -->
+<section>
+  <div class="shead"><h2>채널 주문 통합 처리</h2><span class="tool">A-LOGI</span></div>
+  <p class="lede">
+    채널마다 주문 양식이 다릅니다. 컬럼 이름도, 순서도, 옵션 표기도 제각각입니다.
+    예전에는 이걸 사람이 손으로 옮겨 적었고, 1회에 35~40분이 걸렸습니다. 오배송은 거기서 나왔습니다.
+  </p>
+
+  <div class="panel">
+    <div class="ph">
+      <span class="t">입력 — 채널별 로우데이터</span>
+      <div class="tabs" role="tablist" id="tabs"></div>
+    </div>
+    <div class="pb"><div class="scroll"><table id="rawTable"></table></div></div>
+    <div class="ph" style="border-top:1px solid var(--line);border-bottom:none">
+      <button class="btn" id="run">주문장 생성</button>
+      <button class="btn ghost" id="reset" hidden>다시</button>
+      <span class="t" id="runNote">3개 파일 · 24줄 대기 중</span>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:1rem">
+    <div class="panel">
+      <div class="ph"><span class="t">처리 로그</span></div>
+      <div class="pb"><div class="term" id="log"><span class="d">실행을 기다리는 중…</span></div></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><span class="t">출력 — 표준 출고지시서</span></div>
+      <div class="pb">
+        <div id="outEmpty" style="color:var(--mut);padding:2.4rem .5rem;text-align:center;font-size:.85rem">«주문장 생성»을 누르면 여기에 표시됩니다</div>
+        <div class="scroll" id="outWrap" hidden><table id="outTable"></table></div></div>
+      <div class="stats" id="outStats" hidden></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ 데모 2 ════ -->
+<section>
+  <div class="shead"><h2>소비기한 재고 판정</h2><span class="tool">재고 대시보드</span></div>
+  <p class="lede">
+    소비기한 임박 재고는 보통 사후에 발견됩니다. 그 시점엔 폐기 말고 선택지가 없습니다.
+    남은 기간과 최근 출고 속도를 맞대어 보면, 지금 손쓸 수 있는 품목과 이미 늦은 품목이 갈립니다.
+  </p>
+
+  <div class="panel">
+    <div class="ph" style="display:block">
+      <div class="ctl">
+        <label for="mult">프로모션 강도 — 일평균 출고량 배수</label>
+        <input type="range" id="mult" min="1" max="4" step="0.1" value="1">
+        <span class="mult" id="multV">1.0×</span>
+      </div>
+    </div>
+    <div class="pb"><div class="scroll"><table id="stockTable"></table></div></div>
+    <div class="stats" id="stockStats"></div>
+  </div>
+  <p class="lede" style="margin-top:.9rem;margin-bottom:0">
+    슬라이더를 올리면 "얼마나 밀어야 소진되는가"가 보입니다.
+    실제 운영에서는 이 숫자를 근거로 기부·묶음판매·프로모션 중 무엇을 쓸지 정합니다.
+  </p>
+</section>
+
+<footer>
+  수록 데이터는 전부 가상입니다. 채널명은 공개된 오픈마켓 이름이며, 제품·수량·단가·주문번호는 데모를 위해 만든 값입니다.<br>
+  실제 운영 중인 프로그램은 Python으로 직접 개발해 사내 PC에 배포했고, 2026년 8월부터 사용 기록을 측정하고 있습니다.
+</footer>
+
+</div>
+
+<script>
+/* ───────── 데모 1 ───────── */
+const CH = {
+  cou: { name:"쿠팡", head:["주문번호","옵션명","수량","수취인"], rows:[
+    ["2610-8841002","유산균 30포 / 1박스","2","김○○"],
+    ["2610-8841019","오메가3 60캡슐 / 2박스","1","박○○"],
+    ["2610-8841027","루테인 60캡슐 / 1박스","3","이○○"],
+    ["2610-8841033","유산균 30포 / 3박스+사은품","1","최○○"],
+    ["2610-8841041","밀크씨슬 120정","2","정○○"]]},
+  nav: { name:"네이버", head:["상품주문번호","상품명","구매수량","수령인명"], rows:[
+    ["20261019NV0771","[특가] 콜라겐 스틱 30포","1","강○○"],
+    ["20261019NV0784","비타민D 90캡슐 (2개월분)","2","윤○○"],
+    ["20261019NV0790","칼슘마그네슘 180정","1","임○○"],
+    ["20261019NV0803","효소 30포 x 2","1","한○○"]]},
+  own: { name:"자사몰", head:["ORDER_NO","SKU","QTY","RECEIVER"], rows:[
+    ["AP-26101900211","HB-1001","4","오○○"],
+    ["AP-26101900214","HB-1009","1","서○○"],
+    ["AP-26101900219","HB-1005","2","신○○"]]}
+};
+const OUT = [
+  ["G-01","HB-1001","유산균 30포",       "9","판매","ok"],
+  ["G-01","HB-9001","샘플 스틱 3포",      "3","판촉","ac"],
+  ["G-02","HB-1003","오메가3 60캡슐",     "2","판매","ok"],
+  ["G-03","HB-1005","루테인 60캡슐",      "5","판매","ok"],
+  ["G-04","HB-1004","밀크씨슬 120정",     "2","판매","ok"],
+  ["G-05","HB-1007","콜라겐 스틱 30포",   "1","판매","ok"],
+  ["G-05","HB-9002","쇼핑백",             "1","판촉","ac"],
+  ["G-06","HB-1002","비타민D 90캡슐",     "2","판매","ok"],
+  ["G-07","HB-1006","칼슘마그네슘 180정", "1","판매","ok"],
+  ["G-08","HB-1008","효소 30포",          "2","판매","ok"],
+  ["G-09","HB-1009","— 매핑표 미등록 —",  "1","확인요청","wn"]
+];
+const LOG = [
+  ['[1/5] 로우데이터 읽는 중  …  3개 파일 / 24줄',''],
+  ['[2/5] 채널별 매핑 규칙 적용  …  쿠팡 11 · 네이버 9 · 자사몰 4',''],
+  ['[3/5] 주문 통합 · 중복 제거  …  24줄 → 21건',''],
+  ['[4/5] 오류 검증  …  주소 누락 0 · 수량 불일치 0 · 미등록 SKU 1','y'],
+  ['      └ HB-1009 매핑표에 없음 → 확인요청으로 분리','y'],
+  ['[5/5] 판촉 규칙 적용  …  사은품 2건 자동 반영',''],
+  ['',''],
+  ['완료 — 출고지시서 11행 / 21건 생성  (0.8초)','g'],
+  ['수기 작성 기준 환산: 약 35분 → 0.8초','g']
+];
+
+let cur = "cou";
+const $ = s => document.querySelector(s);
+
+function drawTabs(){
+  $("#tabs").innerHTML = Object.entries(CH).map(([k,v]) =>
+    `<button class="tab" role="tab" data-k="${k}" aria-selected="${k===cur}">${v.name}</button>`).join("");
+  $("#tabs").querySelectorAll(".tab").forEach(b =>
+    b.onclick = () => { cur = b.dataset.k; drawTabs(); drawRaw(); });
+}
+function drawRaw(){
+  const c = CH[cur];
+  $("#rawTable").innerHTML =
+    "<thead><tr>" + c.head.map(h=>`<th>${h}</th>`).join("") + "</tr></thead><tbody>" +
+    c.rows.map(r=>"<tr>"+r.map((d,i)=>
+      `<td class="${i===0?'mono':''} ${i===2?'num':''}">${d}</td>`).join("")+"</tr>").join("") +
+    "</tbody>";
+}
+function drawOut(){
+  const B={ok:"b-ok",ac:"b-ac",wn:"b-wn"};
+  $("#outTable").innerHTML =
+    "<thead><tr><th>출고그룹</th><th>SKU</th><th>제품명</th><th class='num'>수량</th><th>구분</th></tr></thead><tbody>" +
+    OUT.map(r=>`<tr><td class="mono">${r[0]}</td><td class="mono">${r[1]}</td><td>${r[2]}</td>
+      <td class="num">${r[3]}</td><td><span class="bd ${B[r[5]]}">${r[4]}</span></td></tr>`).join("") +
+    "</tbody>";
+  const st=$("#outStats");
+  st.innerHTML = `<div><div class="v" style="color:var(--ok)">21</div><div class="l">통합 주문 건수</div></div>
+    <div><div class="v" style="color:var(--accent)">2</div><div class="l">사은품 자동 적용</div></div>
+    <div><div class="v" style="color:var(--warn)">1</div><div class="l">확인요청</div></div>
+    <div><div class="v">0.8초</div><div class="l">처리 시간</div></div>`;
+  st.hidden = false;
+  $("#outEmpty").hidden = true; $("#outWrap").hidden = false;
+}
+function runDemo(){
+  $("#run").disabled = true; $("#runNote").textContent = "처리 중…";
+  const el = $("#log"); el.textContent = ""; let i = 0;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const step = () => {
+    if (i >= LOG.length) {
+      $("#runNote").textContent = "완료 — 출고지시서 생성됨";
+      $("#reset").hidden = false; drawOut(); return;
+    }
+    const [t,c] = LOG[i++];
+    const s = document.createElement("span");
+    if (c) s.className = c;
+    s.textContent = t + "\n";
+    el.appendChild(s);
+    reduce ? step() : setTimeout(step, 230);
+  };
+  step();
+}
+$("#run").onclick = runDemo;
+$("#reset").onclick = () => {
+  $("#run").disabled = false; $("#reset").hidden = true;
+  $("#runNote").textContent = "3개 파일 · 24줄 대기 중";
+  $("#log").innerHTML = '<span class="d">실행을 기다리는 중…</span>';
+  $("#outStats").hidden = true; $("#outWrap").hidden = true; $("#outEmpty").hidden = false;
+};
+drawTabs(); drawRaw();
+
+/* ───────── 데모 2 ───────── */
+const TODAY = new Date(2026,9,20);
+const STOCK = [
+  ["HB-1001","유산균 30포",       4200, 48, "2027-06-30", 12000],
+  ["HB-1002","비타민D 90캡슐",     2800, 12, "2027-02-28",  9500],
+  ["HB-1003","오메가3 60캡슐",     1150, 31, "2027-09-30", 15000],
+  ["HB-1004","밀크씨슬 120정",     6400, 18, "2027-01-31",  8000],
+  ["HB-1005","루테인 60캡슐",       980, 26, "2027-12-31", 18000],
+  ["HB-1006","칼슘마그네슘 180정", 3300, 22, "2027-03-31",  7500],
+  ["HB-1007","콜라겐 스틱 30포",   5100, 41, "2027-05-31", 22000],
+  ["HB-1008","효소 30포",          2050,  9, "2026-12-31", 25000]
+];
+const days = iso => {
+  const [y,m,d] = iso.split("-").map(Number);
+  return Math.round((new Date(y,m-1,d) - TODAY) / 86400000);
+};
+const won = n => "₩" + Math.round(n).toLocaleString("ko-KR");
+
+function drawStock(){
+  const k = parseFloat($("#mult").value);
+  $("#multV").textContent = k.toFixed(1) + "×";
+  let bad = 0, warn = 0, loss = 0;
+  const rows = STOCK.map(([sku,nm,qty,base,exp,price]) => {
+    const rate = base * k;
+    const left = days(exp);
+    const need = qty / rate;                 // 소진 예상일
+    const slack = left - need;               // 여유일
+    const canSell = Math.min(qty, rate * left);
+    const waste = Math.max(0, qty - canSell);
+    let cls, label;
+    if (slack >= 30)      { cls = "b-ok"; label = "소진 가능"; }
+    else if (slack >= 0)  { cls = "b-wn"; label = "위험";      warn++; }
+    else                  { cls = "b-bd"; label = "소진 불가"; bad++; loss += waste * price; }
+    return `<tr>
+      <td class="mono">${sku}</td><td>${nm}</td>
+      <td class="num">${qty.toLocaleString()}</td>
+      <td class="num">${rate.toFixed(0)}</td>
+      <td class="num mono">${exp}</td>
+      <td class="num">${left}일</td>
+      <td class="num">${Math.ceil(need)}일</td>
+      <td class="num" style="color:${slack<0?'var(--bad)':'inherit'}">${slack>=0?'+':''}${Math.round(slack)}일</td>
+      <td><span class="bd ${cls}">${label}</span></td></tr>`;
+  }).join("");
+  $("#stockTable").innerHTML =
+    `<thead><tr><th>SKU</th><th>제품명</th><th class="num">재고</th><th class="num">일평균 출고</th>
+     <th class="num">소비기한</th><th class="num">남은 기간</th><th class="num">소진 예상</th>
+     <th class="num">여유</th><th>판정</th></tr></thead><tbody>${rows}</tbody>`;
+  $("#stockStats").innerHTML =
+    `<div><div class="v" style="color:var(--bad)">${bad}건</div><div class="l">소진 불가</div></div>
+     <div><div class="v" style="color:var(--warn)">${warn}건</div><div class="l">위험 (여유 30일 미만)</div></div>
+     <div><div class="v" style="color:var(--ok)">${STOCK.length-bad-warn}건</div><div class="l">소진 가능</div></div>
+     <div><div class="v">${won(loss)}</div><div class="l">폐기 예상 금액</div></div>`;
+}
+$("#mult").oninput = drawStock;
+drawStock();
+</script>
+
+</body>
+</html>
